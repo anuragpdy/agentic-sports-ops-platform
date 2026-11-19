@@ -1,0 +1,15 @@
+# Keep the build context small and secret-free
+.git
+.github
+.venv
+.env
+.env.*
+!.env.example
+**/__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+evals/results
+.claude
+.vscode
+.DS_Store

@@ -1,0 +1,3 @@
+{"id": "smoke-001", "input": "Say hello", "expected_contains": "hello"}
+{"id": "smoke-002", "input": "What is the capital of France?", "expected_contains": "France"}
+{"id": "smoke-003", "input": "Return the word OK", "expected_contains": "OK"}

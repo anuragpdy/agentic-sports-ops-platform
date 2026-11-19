@@ -1,0 +1,9 @@
+{
+  // Use this project's virtual environment (created by `uv sync`)
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  // Tests live in tests/
+  "python.testing.pytestArgs": ["tests"],
+  // mypy extension: read [tool.mypy] from pyproject.toml, check the whole workspace
+  "mypy-type-checker.importStrategy": "fromEnvironment",
+  "mypy-type-checker.reportingScope": "workspace"
+}

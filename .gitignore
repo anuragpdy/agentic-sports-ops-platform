@@ -1,0 +1,35 @@
+# --- Secrets: never commit ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# --- Virtual environment (recreate with `uv sync`) ---
+.venv/
+
+# --- Tool caches ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Eval run outputs (keep the folder, not the results) ---
+evals/results/*
+!evals/results/.gitkeep
+
+# --- Claude Code personal settings (project settings.json IS committed) ---
+.claude/settings.local.json
+
+# --- OS / editor noise ---
+.DS_Store
+.idea/

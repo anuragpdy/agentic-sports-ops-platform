@@ -1,0 +1,63 @@
+name: CI
+
+# When to run: every push to main, and every pull request.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# If you push again to the same branch/PR, cancel the older, now-pointless run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: this workflow only needs to read the code.
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint, types, tests, evals
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP_ENV: ci
+      LLM_PROVIDER: fake
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Install uv (with dependency cache)
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install Python + dependencies exactly from uv.lock
+        run: uv sync --locked
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: Format check (ruff)
+        run: uv run ruff format --check .
+
+      - name: Type check (mypy)
+        run: uv run mypy
+
+      - name: Tests (pytest)
+        run: uv run pytest
+
+      - name: Evals
+        run: uv run python -m evals.run_evals
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: quality
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Build the image (not pushed anywhere)
+        run: docker build -t ai-project-template:ci .
