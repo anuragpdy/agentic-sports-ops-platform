@@ -1,7 +1,7 @@
 [project]
-name = "ai-project-template"
+name = "agentic-sports-ops-platform"
 version = "0.1.0"
-description = "Production-ready starting point for AI engineering projects"
+description = "Agentic investigation platform for a simulated sportsbook"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -35,9 +35,4 @@ files = ["src", "tests", "evals"]
 plugins = ["pydantic.mypy"]
 
 [dependency-groups]
-dev = [
-    "httpx2>=2.16.2",
-    "mypy>=2.4.1",
-    "pytest>=9.2.0",
-    "ruff>=0.17.5",
-]
+dev = ["httpx2>=2.16.2", "mypy>=2.4.1", "pytest>=9.2.0", "ruff>=0.17.5"]
