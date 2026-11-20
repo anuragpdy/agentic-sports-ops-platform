@@ -44,4 +44,6 @@ former employer.
 - At the end of a session, update `docs/progress.md` (done, open issues, exact next step).
 
 ## Lessons learned
-<!-- One line each time you correct a mistake Claude made in this repo. -->
+- Never commit before I approve the slice; stop and show the diff first.
+- Never read or edit .env; tell me what to change and I'll do it.
+- No retries inside health probes; the caller's next poll is the retry.
