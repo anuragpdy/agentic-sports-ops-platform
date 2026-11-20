@@ -1,23 +1,68 @@
-# Run the app (and later its databases) locally with one command:  docker compose up --build
+# Run the app and its databases locally with one command:  docker compose up -d --build
+#
+# One .env file serves two ways of running the app:
+#   - `uv run uvicorn ...` on your machine reads DATABASE_URL / REDIS_URL from .env (localhost).
+#   - Here, the app's `environment:` block overrides those two with the service names
+#     (postgres, redis). In compose, `environment:` beats `env_file:`, and in the app,
+#     real environment variables beat .env. So .env never needs editing to switch.
+# ${VAR:?msg} is filled in by compose from .env and stops with `msg` if VAR is missing.
+# Note: the password goes into a URL as-is, so keep it to letters and numbers.
+
 services:
   app:
     build: .
     ports:
-      - "8000:8000"
+      # 127.0.0.1 only, like the databases: reachable from this Mac, not the network.
+      - "127.0.0.1:8000:8000"
     env_file:
       - path: .env
         required: false
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:?set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:?set POSTGRES_DB in .env}"
+      REDIS_URL: "redis://redis:6379/0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
-  # Example for later — uncomment when the project needs a database:
-  # db:
-  #   image: postgres:17
-  #   environment:
-  #     POSTGRES_PASSWORD: postgres
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - db-data:/var/lib/postgresql/data
+  postgres:
+    # Postgres 18.7 + pgvector 0.8.7. Pinned: a floating tag could change under us.
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    # Only the three variables Postgres needs, not the whole .env (least privilege).
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+    ports:
+      # 127.0.0.1 only: reachable from this Mac, not from other machines on the network.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # Postgres 18+ images keep data under /var/lib/postgresql/18/docker, so the volume
+      # mounts /var/lib/postgresql (NOT .../data as in older images).
+      - pg-data:/var/lib/postgresql
+    healthcheck:
+      # -h 127.0.0.1 (TCP): during first-time setup Postgres runs a temporary server on a
+      # local socket only; checking over TCP avoids reporting "healthy" too early.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
 
-# volumes:
-#   db-data:
+  redis:
+    # Pinned stable release (8.12 is still a release candidate).
+    image: redis:8.10.3-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pg-data:
