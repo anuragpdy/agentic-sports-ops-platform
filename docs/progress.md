@@ -3,15 +3,15 @@
 > Read at the start of every session (by you and by Claude Code). Update at the end of every session.
 
 ## Current
-- **Day:** 1 — Kickoff
-- **Branch:** chore/project-kickoff
-- **Status:** not started
+- **Day:** 1 — Kickoff (infra + health)
+- **Branch:** feat/day01-kickoff
+- **Status:** setup done; writing Day 1 spec
 
 ## Exact next step
-Create the repo from the template, add the kickoff files, fill `docs/architecture.md` Problem section in my own words.
+Spec written (docs/specs/day01-kickoff.md). Run /start-day and build it. Problem section + ADR 0002 moved to a later day.
 
 ## Done
-<!-- - Day 1 (2026-11-20): kickoff docs, Postgres + Redis in compose, /health checks both. PR #1 -->
+- Setup (2026-11-19): template repo public + CI green; platform repo created from it; PR #1 rename, PR #2 kickoff kit; /start-day verified (stops with no spec)
 
 ## Open questions / known issues
 -
