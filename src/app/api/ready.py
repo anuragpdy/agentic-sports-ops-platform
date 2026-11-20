@@ -9,16 +9,18 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Response, status
 
 from app.core.config import Settings, get_settings
+from app.core.dependency_checks import build_dependency_checks
 from app.core.readiness import DependencyCheck, check_readiness
 from app.schemas.health import ReadyResponse
 
 router = APIRouter(tags=["health"])
 
 
-def get_dependency_checks() -> list[DependencyCheck]:
+def get_dependency_checks(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> list[DependencyCheck]:
     """Which dependencies /ready checks. Tests replace this via app.dependency_overrides."""
-    # Real Postgres and Redis probes are added in slice 3 (Day 1 plan).
-    raise NotImplementedError("real dependency checks are not wired up yet")
+    return build_dependency_checks(settings)
 
 
 @router.get(

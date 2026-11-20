@@ -7,15 +7,17 @@ Kept free of FastAPI and of any real database code, so it can be tested with fak
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Callable, Coroutine, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from app.schemas.health import CheckResult, ReadyResponse
 
 logger = logging.getLogger(__name__)
 
-# A probe returns normally if the dependency is usable and raises any exception if not.
-Probe = Callable[[], Awaitable[None]]
+# A probe is an `async def` that returns normally if the dependency is usable and raises
+# any exception if not.
+Probe = Callable[[], Coroutine[Any, Any, None]]
 
 
 @dataclass(frozen=True)
