@@ -25,7 +25,10 @@ def test_api_key_is_hidden_when_printed(monkeypatch: pytest.MonkeyPatch) -> None
     assert settings.llm_api_key.get_secret_value() == "sk-very-secret"
 
 
-def test_dependency_settings_have_working_defaults() -> None:
+def test_dependency_settings_have_working_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Clear these so the test checks the code's defaults, not whatever the shell exports.
+    for name in ("DATABASE_URL", "REDIS_URL", "DEPENDENCY_CHECK_TIMEOUT_SECONDS"):
+        monkeypatch.delenv(name, raising=False)
     settings = Settings(_env_file=None)
     assert settings.redis_url == "redis://localhost:6379/0"
     assert settings.dependency_check_timeout_seconds == 1.0

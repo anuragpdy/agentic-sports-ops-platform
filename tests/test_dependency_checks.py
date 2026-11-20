@@ -17,25 +17,41 @@ def test_checks_are_wired_with_spec_criticality() -> None:
     assert [(c.name, c.critical) for c in checks] == [("postgres", True), ("redis", False)]
 
 
-def test_postgres_probe_uses_url_and_autocommit(monkeypatch: pytest.MonkeyPatch) -> None:
+class FakeConn:
+    """Stands in for psycopg.AsyncConnection. Records calls; can fail on execute."""
+
+    def __init__(self, calls: dict[str, Any], execute_error: Exception | None) -> None:
+        self.calls = calls
+        self.execute_error = execute_error
+
+    async def __aenter__(self) -> "FakeConn":
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        self.calls["closed"] = True
+
+    async def execute(self, query: str) -> None:
+        self.calls["query"] = query
+        if self.execute_error:
+            raise self.execute_error
+
+
+def patch_postgres(
+    monkeypatch: pytest.MonkeyPatch, execute_error: Exception | None = None
+) -> dict[str, Any]:
     calls: dict[str, Any] = {}
-
-    class FakeConn:
-        async def __aenter__(self) -> "FakeConn":
-            return self
-
-        async def __aexit__(self, *exc: object) -> None:
-            calls["closed"] = True
-
-        async def execute(self, query: str) -> None:
-            calls["query"] = query
 
     async def fake_connect(conninfo: str, **kwargs: Any) -> FakeConn:
         calls["conninfo"] = conninfo
         calls["kwargs"] = kwargs
-        return FakeConn()
+        return FakeConn(calls, execute_error)
 
     monkeypatch.setattr(psycopg.AsyncConnection, "connect", fake_connect)
+    return calls
+
+
+def test_postgres_probe_uses_url_and_autocommit(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = patch_postgres(monkeypatch)
     asyncio.run(postgres_probe("postgresql://u:p@h/db")())
     assert calls == {
         "conninfo": "postgresql://u:p@h/db",
@@ -43,6 +59,16 @@ def test_postgres_probe_uses_url_and_autocommit(monkeypatch: pytest.MonkeyPatch)
         "query": "SELECT 1",
         "closed": True,
     }
+
+
+def test_postgres_probe_closes_connection_even_when_query_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = patch_postgres(monkeypatch, execute_error=psycopg.OperationalError("boom"))
+    with pytest.raises(psycopg.OperationalError):
+        asyncio.run(postgres_probe("postgresql://u:p@h/db")())
+    assert calls["query"] == "SELECT 1"
+    assert calls["closed"] is True
 
 
 class FakeRedis:
