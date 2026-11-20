@@ -6,7 +6,7 @@
 | Day | Focus (the why) | Build — done when | Break it / interview topic |
 |---|---|---|---|
 | **Week 1** | **Agent architecture, MCP, data** | | |
-| 1 | Kickoff; project docs; Postgres + Redis | Repo from template; kickoff docs; Postgres + Redis in compose; `/health` reports both | Stop Redis: what should `/health` say? |
+| 1 | Kickoff; project docs; Postgres + Redis | Repo from template; kickoff docs; Postgres + Redis in compose; `/health` = liveness only, `/ready` checks both (see docs/specs/day01-kickoff.md) | Stop Redis: what should `/health` say? |
 | 2 | Schema design, migrations, typed contracts | Postgres schema + Alembic; Pydantic models per entity | Migration down and up |
 | 3 | Seeded simulation; external data | StatsBomb loader to Parquet; simulator v0 (accounts, deposits, bets) | Same seed → identical data (test) |
 | 4 | Ground truth and leakage | Planted scenarios, benign look-alikes, labelled alerts | "How do you know your labels are right?" |

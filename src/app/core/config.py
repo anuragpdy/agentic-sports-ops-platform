@@ -8,7 +8,7 @@ fast with a clear error instead of breaking deep inside a request.
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     llm_model: str = "fake-model"
     llm_timeout_seconds: float = 30.0
     llm_api_key: SecretStr = SecretStr("")
+
+    # Dependencies. Defaults point at a local, password-less dev setup so the app and the
+    # tests start without a .env (e.g. in CI). DATABASE_URL is a SecretStr because a real
+    # URL contains the password; SecretStr hides it in repr() and logs.
+    database_url: SecretStr = SecretStr("postgresql://localhost:5432/postgres")
+    redis_url: str = "redis://localhost:6379/0"
+    # Upper bound for one whole readiness check (connect + query). Must be > 0.
+    dependency_check_timeout_seconds: float = Field(default=1.0, gt=0)
 
 
 @lru_cache

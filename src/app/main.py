@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app import __version__
 from app.api.health import router as health_router
+from app.api.ready import router as ready_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 
@@ -13,6 +14,7 @@ def create_app() -> FastAPI:
     configure_logging(settings.log_level)
     app = FastAPI(title=settings.app_name, version=__version__)
     app.include_router(health_router)
+    app.include_router(ready_router)
     return app
 
 
