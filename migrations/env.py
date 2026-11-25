@@ -12,11 +12,12 @@ from alembic import context
 from sqlalchemy import Connection, create_engine, pool
 
 from app.core.config import get_settings
+
+# Imported for its side effect: defining the model classes registers their tables on
+# Base.metadata, which autogenerate compares against the database.
+from app.db import models  # noqa: F401
 from app.db.base import Base
 from app.db.url import sqlalchemy_url
-
-# Models must be imported so their tables register on Base.metadata (added in slice 2):
-# from app.db import models  # noqa: F401
 
 config = context.config
 

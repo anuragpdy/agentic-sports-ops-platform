@@ -26,6 +26,7 @@ Migrations make schema changes repeatable, reviewable and reversible on Mac, CI 
 - IDs = UUID, generated in Python. (new) UUIDv7 if our Python version has it (time-ordered → faster inserts into indexes), else v4. Claude Code checks, doesn't guess.
   **Checked: uuid4.** UUIDv7 not available on Python 3.12 (`uuid.uuid7` arrives in 3.14); revisit at M14 load testing.
 - All timestamps = `timestamptz`, stored in UTC.
+  No created_at default: simulator sets times explicitly; revisit in M5.
 - Fraud labels live only in `alert_labels`. Agent tools will never get access to it (enforced with a DB role in M4). Today: separate table only.
 - (new) Allowed values (status, severity, method…) = TEXT + CHECK constraint, not Postgres ENUM types. Easier to change later in a migration.
 - (new) Database rules, not just Python rules: amounts > 0, odds > 1.000, foreign keys, NOT NULL. Bad data is rejected even if some future code forgets to validate.
