@@ -16,7 +16,7 @@ from alembic import command
 from alembic.config import Config
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from sqlalchemy import Engine, create_engine, pool, text
+from sqlalchemy import Connection, Engine, create_engine, pool, text
 
 from app.db.url import sqlalchemy_url
 
@@ -70,6 +70,30 @@ def alembic_check(engine: Engine) -> None:
         cfg = Config(ALEMBIC_INI)
         cfg.attributes["connection"] = conn
         command.check(cfg)
+
+
+@pytest.fixture(scope="module")
+def migrated_db(engine: Engine) -> Engine:
+    """A test DB at `head`, built once per test module (migrating is the slow part)."""
+    with engine.begin() as conn:
+        conn.execute(text("DROP SCHEMA public CASCADE"))
+        conn.execute(text("CREATE SCHEMA public"))
+    alembic_upgrade(engine)
+    return engine
+
+
+@pytest.fixture
+def db(migrated_db: Engine) -> Iterator[Connection]:
+    """A connection inside a transaction that is always rolled back.
+
+    Each test starts from empty tables and leaves nothing behind, with no cleanup code.
+    """
+    with migrated_db.connect() as conn:
+        trans = conn.begin()
+        try:
+            yield conn
+        finally:
+            trans.rollback()
 
 
 @pytest.fixture
