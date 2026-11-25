@@ -3,7 +3,7 @@
 > Read at the start of every session (by you and by Claude Code). Update at the end of every session.
 
 ## Current
-- **Milestone:** M2 (data model + migrations) ✅ done; PR open from feat/m02-data-model (number: fill in).
+- **Milestone:** M2 (data model + migrations) ✅ done; PR open from feat/m02-data-model (number: #5).
 - **Branch:** feat/m02-data-model
 - **Status:** waiting for CI on the PR (first run with the Postgres service container), then merge.
 
@@ -15,7 +15,7 @@ there, and run /start-day on branch feat/m03-<slug>.
 ## Done
 - Setup (2026-11-19): template repo public + CI green; platform repo created from it; PR #1 rename, PR #2 kickoff kit; /start-day verified (stops with no spec)
 - Day 1 (2026-11-20): Postgres 18.7 + pgvector 0.8.7 and Redis 8.10.3 in compose (healthchecks, 127.0.0.1-only ports, one .env for uv run and compose); `/health` = liveness only; new `/ready` checks both concurrently with a 1 s timeout (Postgres down → 503, Redis down → 200 degraded). 27 tests; break tests passed by hand (Redis stop, Postgres stop, Postgres pause → timeout in 1.01 s, app boot with Postgres down; all recover without app restart). Card: docs/cards/health-check.md. PR: PR #3.
-- M2 (2026-11-25): six tables (accounts, deposits, bets, alerts, cases, alert_labels) via SQLAlchemy models + one reviewed Alembic migration; DB rules: FKs (no cascade), NOT NULL, CHECKs for amounts, odds > 1, ISO codes, allowed values, bet/case state, alerts.details is a JSON object; strict frozen Pydantic read models; migrations get connect_timeout 10 s + lock_timeout 5 s. 90 tests (32 integration against sportsops_test: up/down/up, no drift, 25 constraint tests naming the rule that fired, read models, lock timeout); CI runs them against a Postgres service container; pytest-timeout 60 s. Hand break tests done on dev. Card: docs/cards/data-model.md. PR: (fill in).
+- M2 (2026-11-25): six tables (accounts, deposits, bets, alerts, cases, alert_labels) via SQLAlchemy models + one reviewed Alembic migration; DB rules: FKs (no cascade), NOT NULL, CHECKs for amounts, odds > 1, ISO codes, allowed values, bet/case state, alerts.details is a JSON object; strict frozen Pydantic read models; migrations get connect_timeout 10 s + lock_timeout 5 s. 90 tests (32 integration against sportsops_test: up/down/up, no drift, 25 constraint tests naming the rule that fired, read models, lock timeout); CI runs them against a Postgres service container; pytest-timeout 60 s. Hand break tests done on dev. Card: docs/cards/data-model.md. PR: (#5).
 
 ## Open questions / known issues
 - **I1 (medium):** every /ready call opens a fresh Postgres + Redis connection with no cap; ~100 concurrent calls could exhaust Postgres `max_connections` (100). Safe today (127.0.0.1 only). Fix before /ready faces a load balancer: cache the result 1–2 s or allow one in-flight check (src/app/core/readiness.py, src/app/core/dependency_checks.py).
