@@ -31,6 +31,8 @@ former employer.
 - Sync: `uv sync` · Tests: `uv run pytest` · Lint/format: `uv run ruff check . --fix && uv run ruff format .`
 - Types: `uv run mypy` · Evals: `uv run python -m evals.run_evals`
 - Stack: `docker compose up -d` · Logs: `docker compose logs -f <service>`
+- Migrations: `uv run alembic upgrade head` · Integration tests only: `uv run pytest -m integration`
+  (needs TEST_DATABASE_URL → `sportsops_test`; see `.env.example`)
 
 ## Working rules for this repo
 - One milestone per branch: `feat/mNN-<slug>` (e.g. `feat/m02-data-model`). Work only on the current milestone's spec.
