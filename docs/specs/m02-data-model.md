@@ -43,6 +43,7 @@ Migrations make schema changes repeatable, reviewable and reversible on Mac, CI 
   - Mac: once, `docker compose exec postgres createdb -U sportsops sportsops_test`.
     Not an init script: those only run on an empty volume, so the existing volume would still need the command.
 - (new) Index every foreign key column, plus bets(account_id, placed_at) for "recent bets of an account".
+  No separate bets.account_id index: it is the left-prefix of bets(account_id, placed_at), which already serves it.
 - (new) Migrations: Alembic autogenerate drafts, a human reviews every line before commit.
 - (new) CI gets a Postgres service container so the migration tests run on every PR, not only on my Mac.
 
