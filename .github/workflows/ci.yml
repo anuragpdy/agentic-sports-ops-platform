@@ -20,9 +20,31 @@ jobs:
     name: Lint, types, tests, evals
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # A throwaway Postgres for the integration tests (migrations, constraints, read models).
+    # Same image as docker-compose.yml, so CI tests the Postgres version we actually run.
+    # The service creates sportsops_test itself via POSTGRES_DB; no setup step needed.
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg18-trixie
+        env:
+          POSTGRES_USER: sportsops
+          # Not a secret: this container lives only for this job and is reachable only
+          # from the runner. A GitHub secret would add setup without protecting anything.
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: sportsops_test
+        ports:
+          - 5432:5432
+        # Don't start the steps until Postgres accepts connections.
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U sportsops -d sportsops_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     env:
       APP_ENV: ci
       LLM_PROVIDER: fake
+      # With APP_ENV=ci, integration tests FAIL (not skip) if this is missing.
+      TEST_DATABASE_URL: postgresql://sportsops:ci-only-password@localhost:5432/sportsops_test
     steps:
       - name: Check out the code
         uses: actions/checkout@v7
