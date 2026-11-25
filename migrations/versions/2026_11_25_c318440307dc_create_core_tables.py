@@ -61,6 +61,9 @@ def upgrade() -> None:
         sa.Column("details", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
+            "jsonb_typeof(details) = 'object'", name=op.f("ck_alerts_details_is_object")
+        ),
+        sa.CheckConstraint(
             "severity IN ('low', 'medium', 'high')", name=op.f("ck_alerts_severity_allowed")
         ),
         sa.ForeignKeyConstraint(

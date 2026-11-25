@@ -178,6 +178,26 @@ def test_rejects_closed_case_without_closed_at(db: Connection) -> None:
     assert violated(exc) == "ck_cases_closed_has_closed_at"
 
 
+@pytest.mark.parametrize(
+    "details",
+    [
+        pytest.param([1, 2], id="array"),
+        pytest.param("text", id="string"),
+        pytest.param(7, id="number"),
+        # SQLAlchemy stores Python None in a JSONB column as JSON `null`, not SQL NULL,
+        # so NOT NULL doesn't catch it; the CHECK must.
+        pytest.param(None, id="json-null"),
+    ],
+)
+def test_rejects_alert_details_that_are_not_a_json_object(db: Connection, details: Any) -> None:
+    account_id = add_account(db)
+
+    with pytest.raises(IntegrityError) as exc:
+        db.execute(insert(Alert), alert_row(account_id, details=details))
+
+    assert violated(exc) == "ck_alerts_details_is_object"
+
+
 # --- approved in review: audit rows never cascade away ----------------------------------
 
 

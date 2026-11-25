@@ -139,7 +139,11 @@ class Case(Base):
 
 class Alert(Base):
     __tablename__ = "alerts"
-    __table_args__ = (CheckConstraint(_one_of("severity", AlertSeverity), name="severity_allowed"),)
+    __table_args__ = (
+        CheckConstraint(_one_of("severity", AlertSeverity), name="severity_allowed"),
+        # JSONB alone accepts arrays and scalars; AlertRead (and every reader) expects an object.
+        CheckConstraint("jsonb_typeof(details) = 'object'", name="details_is_object"),
+    )
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id"), index=True)
