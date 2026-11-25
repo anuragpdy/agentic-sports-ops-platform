@@ -3,6 +3,34 @@
 > Day 1 is adjusted: the template already provides uv, tests, CI, Docker and /health.
 > Days 7, 14, 21, 28 are review days: code review, mock design interview, progress update.
 
+## Milestones (how we plan and ship)
+
+A milestone = one component with a provable "finished" definition, 1–3 sessions, one branch `feat/mNN-<slug>`, one PR.
+The day table below is the detailed route. ⭐ = review checkpoint (code review, mock interview, progress update).
+
+| M | Days | Component | Finished when | Interview talking point |
+|---|---|---|---|---|
+| 1 ✅ | 1 | Foundation: storage + health | `/ready` 503 / degraded under break tests (PR #3) | Liveness vs readiness; critical vs optional deps |
+| 2 | 2 | Data model + migrations | Tables for accounts, deposits, bets, alerts, cases; Alembic up → down → up test; Pydantic model per entity | Versioned, reversible schema; typed contracts at the boundary |
+| 3 | 3–4 | Simulated sportsbook + ground truth | Same seed → identical data; planted scenarios + benign look-alikes, labelled | How I know labels are right; leakage |
+| 4 | 5 | First agent tool via MCP | Read-only `sql-investigation` MCP works in Claude Code; bad input + timeout handled | MCP vs function call; least privilege |
+| 5 ⭐ | 6–7 | Agent graph, end to end | One investigation via API; kill mid-run → resumes | Supervisor + specialists; state in Postgres |
+| 6 | 8–10 | Document retrieval | Parse → chunk → embed → hybrid + rerank; recall@5 before/after | Why hybrid; rerank latency cost |
+| 7 | 11 | ML risk model as a tool | LightGBM + calibration + SHAP behind MCP | Why the LLM doesn't judge risk |
+| 8 | 12–13 | Guardrails + human approval | Hallucinated number caught; injection blocked; approval token; idempotent actions | Making an agent safe to act |
+| 9 ⭐ | 14 | Evaluation harness | Golden set v1; eval runner; baselines S0, S1 | Evaluating an agent, not eyeballing it |
+| 10 | 15–17 | Event pipeline | Redpanda; idempotent worker; malformed alert → DLQ → replay | At-least-once + idempotency |
+| 11 | 18–19 | Resilience + observability | 429 storm → fallback; case debugged from its trace | What I monitor; debugging one bad case |
+| 12 ⭐ | 20–21 | Headline benchmark | S0–S3 results table; prompt regression fails CI | When agents are worth it: the numbers |
+| 13 | 22–23 | Secure + deployed | JWT roles; no secrets in git; cloud VM + TLS + backup | How I'd roll back |
+| 14 | 24–26 | Scale + failure drills | Sportsbet-tier load test; one bottleneck fixed; chaos runbooks; prompt rollback | Where p95 is spent |
+| 15 ⭐ | 27–28 | Interview pack | README, diagrams, post, demo video, CV bullets | 2-minute results story |
+
+Later: Weeks 5–7 → M16–M18 (depth while interviewing); Weeks 8–11 → Phase 2.
+
+## Day-by-day route
+
+
 | Day | Focus (the why) | Build — done when | Break it / interview topic |
 |---|---|---|---|
 | **Week 1** | **Agent architecture, MCP, data** | | |

@@ -31,9 +31,11 @@ former employer.
 - Sync: `uv sync` · Tests: `uv run pytest` · Lint/format: `uv run ruff check . --fix && uv run ruff format .`
 - Types: `uv run mypy` · Evals: `uv run python -m evals.run_evals`
 - Stack: `docker compose up -d` · Logs: `docker compose logs -f <service>`
+- Migrations: `uv run alembic upgrade head` · Integration tests only: `uv run pytest -m integration`
+  (needs TEST_DATABASE_URL → `sportsops_test`; see `.env.example`)
 
 ## Working rules for this repo
-- One day/module per branch: `feat/dayNN-<slug>`. Work only on the current day's spec.
+- One milestone per branch: `feat/mNN-<slug>` (e.g. `feat/m02-data-model`). Work only on the current milestone's spec.
 - Plan first (plan mode), wait for approval, then build in small slices; explain each file you change.
 - Never claim something works without showing the command and its output.
 - Code facts: read the file and cite `path:line`; don't answer from memory.
