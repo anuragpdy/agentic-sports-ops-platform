@@ -1,11 +1,8 @@
 """Fixtures for tests that need a real Postgres (the `sportsops_test` database).
 
 Where the URL comes from: TEST_DATABASE_URL (environment or .env). It is read here rather
-than in app Settings because only the tests need it.
-- Unset locally: integration tests are skipped, with the reason printed in the summary.
-- Unset in CI (APP_ENV=ci): they fail, so CI can never go green by silently skipping them.
-- Database name not ending in `_test`: refuse to run. These tests drop the whole schema, and
-  this guard stops a copy-paste slip from pointing them at the dev database.
+than in app Settings because only the tests need it. Whether the tests run, skip or fail is
+decided by tests/integration/db_guard.py (unit-tested on its own).
 """
 
 from collections.abc import Iterator
@@ -18,7 +15,7 @@ from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import Connection, Engine, create_engine, pool, text
 
-from app.db.url import sqlalchemy_url
+from tests.integration.db_guard import decide
 
 ALEMBIC_INI = Path(__file__).resolve().parents[2] / "alembic.ini"
 
@@ -33,18 +30,15 @@ class _TestDbSettings(BaseSettings):
 @pytest.fixture(scope="session")
 def engine() -> Iterator[Engine]:
     settings = _TestDbSettings()
-    if settings.test_database_url is None:
-        reason = "TEST_DATABASE_URL is not set; see docs/specs/m02-data-model.md"
-        if settings.app_env == "ci":
-            pytest.fail(f"{reason} (required in CI)")
-        pytest.skip(f"{reason} (integration tests skipped)")
-
-    url = sqlalchemy_url(settings.test_database_url.get_secret_value())
-    if not (url.database or "").endswith("_test"):
-        pytest.fail(f"refusing to run: database {url.database!r} does not end with '_test'")
+    raw = settings.test_database_url
+    decision = decide(raw.get_secret_value() if raw else None, settings.app_env)
+    if decision.action == "skip":
+        pytest.skip(decision.reason)
+    if decision.action == "fail" or decision.url is None:
+        pytest.fail(decision.reason)
 
     # NullPool: no connections stay open between tests, so DROP SCHEMA never waits on one.
-    eng = create_engine(url, poolclass=pool.NullPool)
+    eng = create_engine(decision.url, poolclass=pool.NullPool)
     yield eng
     eng.dispose()
 
