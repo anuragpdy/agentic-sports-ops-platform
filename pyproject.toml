@@ -23,7 +23,11 @@ packages = ["src/app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+# -ra: summary lists skips with their reason. --strict-markers: a typo'd marker is an error.
+addopts = "-ra --strict-markers"
+markers = [
+    "integration: needs a real Postgres (TEST_DATABASE_URL); run only these with -m integration",
+]
 
 [tool.ruff]
 line-length = 100
