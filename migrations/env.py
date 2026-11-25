@@ -30,9 +30,17 @@ target_metadata = Base.metadata
 
 
 # Also diff column types and server defaults, so the "models match migrations" test
-# catches more than added/removed tables and columns.
+# catches more than added/removed tables and columns. (Autogenerate does NOT compare CHECK
+# constraints; tests/integration/test_constraints.py proves those exist.)
 COMPARE_TYPE = True
 COMPARE_SERVER_DEFAULT = True
+
+# Give up connecting after this long instead of hanging on an unreachable host.
+CONNECT_TIMEOUT_SECONDS = 10
+# A schema change needs a strong lock. If a long query holds the table, waiting forever would
+# also block every query queued behind us; failing after 5 s and retrying later is safer.
+# SET LOCAL: applies only to the migration's transaction, and appears in `--sql` output too.
+LOCK_TIMEOUT_SQL = "SET LOCAL lock_timeout = '5s'"
 
 
 def run_migrations_offline() -> None:
@@ -46,6 +54,7 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
     )
     with context.begin_transaction():
+        context.execute(LOCK_TIMEOUT_SQL)
         context.run_migrations()
 
 
@@ -57,6 +66,7 @@ def _run_with(connection: Connection) -> None:
         compare_server_default=COMPARE_SERVER_DEFAULT,
     )
     with context.begin_transaction():
+        context.execute(LOCK_TIMEOUT_SQL)
         context.run_migrations()
 
 
@@ -69,6 +79,7 @@ def run_migrations_online() -> None:
     engine = create_engine(
         sqlalchemy_url(get_settings().database_url.get_secret_value()),
         poolclass=pool.NullPool,
+        connect_args={"connect_timeout": CONNECT_TIMEOUT_SECONDS},
     )
     with engine.connect() as connection:
         _run_with(connection)

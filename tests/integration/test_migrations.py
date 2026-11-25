@@ -1,7 +1,11 @@
 """Migrations against real Postgres: they build the schema, reverse cleanly, match the models."""
 
+import time
+
+import psycopg
 import pytest
-from sqlalchemy import Engine, inspect
+from sqlalchemy import Engine, inspect, text
+from sqlalchemy.exc import OperationalError
 
 from tests.integration.conftest import alembic_check, alembic_downgrade, alembic_upgrade
 
@@ -31,6 +35,30 @@ def test_upgrade_downgrade_upgrade_is_reversible(empty_db: Engine) -> None:
 
     alembic_upgrade(empty_db)
 
+    assert _tables(empty_db) == SPEC_TABLES
+
+
+def test_migration_gives_up_when_a_table_stays_locked(empty_db: Engine) -> None:
+    """lock_timeout: a blocked migration fails after ~5 s instead of hanging (and blocking
+    every query queued behind it)."""
+    alembic_upgrade(empty_db)
+
+    with empty_db.connect() as blocker:
+        # An open transaction that has read `accounts` holds a lock until it ends;
+        # DROP TABLE needs an exclusive lock, so the downgrade has to wait for it.
+        blocker.begin()
+        blocker.execute(text("SELECT 1 FROM accounts"))
+
+        started = time.monotonic()
+        with pytest.raises(OperationalError) as exc:
+            alembic_downgrade(empty_db, "base")
+        waited = time.monotonic() - started
+
+        blocker.rollback()
+
+    assert isinstance(exc.value.orig, psycopg.errors.LockNotAvailable)
+    assert 4 < waited < 10, f"waited {waited:.1f} s; expected ~5 s lock_timeout"
+    # The failed downgrade rolled back as a whole: every table is still there.
     assert _tables(empty_db) == SPEC_TABLES
 
 
