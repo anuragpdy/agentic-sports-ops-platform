@@ -1,0 +1,6 @@
+Alembic migrations (config: ../alembic.ini, connection logic: env.py).
+
+  uv run alembic upgrade head                          # apply all migrations
+  uv run alembic downgrade -1                          # undo the last one
+  uv run alembic revision --autogenerate -m "<what>"   # draft from models; review every line
+  uv run alembic upgrade head --sql                    # print the SQL without running it
