@@ -25,6 +25,9 @@ packages = ["src/app"]
 testpaths = ["tests"]
 # -ra: summary lists skips with their reason. --strict-markers: a typo'd marker is an error.
 addopts = "-ra --strict-markers"
+# pytest-timeout: any single test running longer than this fails (named, with a traceback)
+# instead of hanging until CI kills the whole job. Slowest test today: ~5 s (lock_timeout).
+timeout = 60
 markers = [
     "integration: needs a real Postgres (TEST_DATABASE_URL); run only these with -m integration",
 ]
@@ -43,4 +46,10 @@ files = ["src", "tests", "evals", "migrations"]
 plugins = ["pydantic.mypy"]
 
 [dependency-groups]
-dev = ["httpx2>=2.16.2", "mypy>=2.4.1", "pytest>=9.2.0", "ruff>=0.17.5"]
+dev = [
+    "httpx2>=2.16.2",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "pytest-timeout>=2.4.0",
+    "ruff>=0.17.5",
+]
