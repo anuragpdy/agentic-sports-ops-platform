@@ -23,7 +23,7 @@ former employer.
 - `src/app/agents/` LangGraph graphs, state · `src/app/prompts/` versioned prompt files
 - `src/app/guardrails/` validation, permissions, budgets · `src/app/llm/` provider interface + router
 - `src/app/schemas/` pydantic models · `mcp_servers/` one folder per MCP server
-- `sim/` simulator + data loaders · `retrieval/` ingestion, parsing, search, rerank · `ml/` risk model
+- `src/app/sim/` simulator (`python -m app.sim`) · `retrieval/` ingestion, parsing, search, rerank · `ml/` risk model
 - `evals/` datasets, scorers, baselines S0-S3 · `tests/` unit, integration, chaos
 (Folders are created when their day arrives, not before.)
 
