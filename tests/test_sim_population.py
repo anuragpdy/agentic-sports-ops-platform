@@ -1,8 +1,10 @@
 """S2: simulator core + ordinary customers (and rules all rows obey). No database."""
 
 import random
-from collections import Counter
-from datetime import timedelta
+import statistics
+import uuid
+from collections import Counter, defaultdict
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -70,9 +72,61 @@ def test_ordinary_accounts_deposit_within_the_configured_range(result: SimResult
     ordinary = {a.id for a in result.population.accounts} - planted
     deposits = Counter(d.account_id for d in result.population.deposits)
     low, high = SMALL.deposits_per_account
+    # Match-day top-ups add up to (days x deposits) on top of the base range.
+    high += SMALL.topup_days[1] * SMALL.topup_deposits[1]
 
     assert len(ordinary) == SMALL.accounts - len(planted)
     assert all(low <= deposits[a] <= high for a in ordinary)
+
+
+# --- ordinary variety (noisy alerts): top-ups and high rollers ------------------------------
+
+VARIETY = SimConfig(accounts=2_000, min_per_story=5)
+
+
+@pytest.fixture(scope="module")
+def variety() -> SimResult:
+    return generate(42, VARIETY)
+
+
+def _ordinary_ids(result: SimResult) -> set[uuid.UUID]:
+    planted = {s.account_id for s in result.registry}
+    return {a.id for a in result.population.accounts} - planted
+
+
+def test_some_ordinary_customers_top_up_several_times_before_a_match(variety: SimResult) -> None:
+    ordinary = _ordinary_ids(variety)
+    times: dict[uuid.UUID, list[datetime]] = defaultdict(list)
+    for d in variety.population.deposits:
+        if d.account_id in ordinary:
+            times[d.account_id].append(d.created_at)
+
+    def has_burst(ts: list[datetime]) -> bool:
+        ts = sorted(ts)
+        return any(ts[i + 2] - ts[i] <= timedelta(minutes=60) for i in range(len(ts) - 2))
+
+    share = sum(has_burst(ts) for ts in times.values()) / len(ordinary)
+    assert 0.05 < share < 0.15  # ~10% configured, plus the odd chance cluster
+
+
+def test_a_few_ordinary_customers_are_high_rollers(variety: SimResult) -> None:
+    ordinary = _ordinary_ids(variety)
+    stakes: dict[uuid.UUID, list[int]] = defaultdict(list)
+    for b in variety.population.bets:
+        if b.account_id in ordinary:
+            stakes[b.account_id].append(b.stake_minor)
+
+    big = sum(statistics.median(s) >= 50_00 for s in stakes.values()) / len(ordinary)
+    assert 0.01 < big < 0.06  # ~3% configured with a typical stake around A$150
+
+
+def test_ordinary_customers_raise_a_large_share_of_alerts(variety: SimResult) -> None:
+    ordinary = _ordinary_ids(variety)
+    rules_hit = Counter(a.rule for a in variety.alerts if a.account_id in ordinary)
+    share = sum(rules_hit.values()) / len(variety.alerts)
+
+    assert share > 0.4  # noisy, as in real life (spec D2)
+    assert rules_hit["deposit_burst"] > 0 and rules_hit["large_stake"] > 0
 
 
 def test_all_times_are_inside_the_window_and_after_signup(pop: Population) -> None:

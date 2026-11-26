@@ -42,7 +42,7 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "ASYNC"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src", "tests", "evals", "migrations"]
+files = ["src", "tests", "evals", "migrations", "scripts"]
 plugins = ["pydantic.mypy"]
 
 [dependency-groups]

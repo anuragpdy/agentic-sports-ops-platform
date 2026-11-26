@@ -33,6 +33,7 @@ from app.sim.population import (
     FixtureIndex,
     Population,
     add_activity,
+    add_deposit_burst,
     draw_long_odds,
     draw_odds,
     draw_stake,
@@ -152,7 +153,9 @@ def plant_f1(
     target, burst_end = _burst_before_match(rng, cfg, fixtures, weekend)
     account = _add_account(rng, cfg, pop, _new_signup(rng, cfg, burst_end))
     typical = draw_typical_stake(rng, cfg)
-    first = _burst(rng, cfg, pop, account, burst_end, cfg.f1_burst_deposits, cfg.f1_burst_minutes)
+    first = add_deposit_burst(
+        rng, cfg, pop, account, burst_end, cfg.f1_burst_deposits, cfg.f1_burst_minutes
+    )
     big = place_bet(
         rng,
         cfg,
@@ -188,7 +191,9 @@ def plant_l1(
     account = _add_account(rng, cfg, pop, signup)
     high_roller = borrowed == "big_stake"
     typical = draw_typical_stake(rng, cfg, cfg.high_roller_stake_median if high_roller else None)
-    first = _burst(rng, cfg, pop, account, burst_end, cfg.l1_burst_deposits, cfg.l1_burst_minutes)
+    first = add_deposit_burst(
+        rng, cfg, pop, account, burst_end, cfg.l1_burst_deposits, cfg.l1_burst_minutes
+    )
 
     # 2-4 bets on that day's matches; the borrowed signal (if any) goes on the first one.
     # Bursts end by ~10:00 UTC and kickoffs stop at 11:30, so +12 h stays on the same day.
@@ -237,23 +242,6 @@ def _new_signup(rng: random.Random, cfg: SimConfig, burst_end: datetime) -> date
     return random_time(
         rng, burst_end - timedelta(days=cfg.new_account_days), burst_end - timedelta(hours=1)
     )
-
-
-def _burst(
-    rng: random.Random,
-    cfg: SimConfig,
-    pop: Population,
-    account: AccountCreate,
-    end: datetime,
-    count: tuple[int, int],
-    minutes: tuple[int, int],
-) -> datetime:
-    """Signal D: several deposits within a few minutes, ending by `end`. Returns the first."""
-    span = timedelta(minutes=rng.randint(*minutes))
-    times = sorted(random_time(rng, end - span, end) for _ in range(rng.randint(*count)))
-    for t in times:
-        pop.deposits.append(make_deposit(rng, cfg, account, t))
-    return times[0]
 
 
 # --- F2 / L2: back after a long silence ---------------------------------------------------

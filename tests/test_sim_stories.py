@@ -1,6 +1,6 @@
 """S3: planted fraud stories and look-alikes. In memory, no database.
 
-Signals are re-measured from the rows (tests/sim_signals.py), so these tests check the
+Signals are re-measured from the rows (app.sim.signals), so these tests check the
 data an alert rule or an agent would actually see, not just what the registry claims.
 """
 
@@ -10,8 +10,8 @@ import pytest
 
 from app.sim.build import SimResult, generate
 from app.sim.config import START, SimConfig
+from app.sim.signals import Rows, measure
 from app.sim.stories import F1_SIGNALS, F2_SIGNALS, PlantedStory, Signal, Story
-from tests.sim_signals import Rows, measure
 
 # 10 per fraud story, 12 per look-alike: every L1/L2 quota option appears 2-4 times.
 CFG = SimConfig(accounts=400, min_per_story=10)

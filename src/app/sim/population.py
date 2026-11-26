@@ -118,20 +118,51 @@ def add_ordinary_customer(
 ) -> AccountCreate:
     account = new_account(rng, cfg, draw_signup(rng, cfg))
     pop.accounts.append(account)
-    typical = draw_typical_stake(rng, cfg)
+    # Variety (spec D2 "noisy alerts"): a few big punters, and some customers who top up
+    # several times before a match. Same generators as the planted stories.
+    high_roller = rng.random() < cfg.ordinary_high_roller_share
+    typical = draw_typical_stake(rng, cfg, cfg.high_roller_stake_median if high_roller else None)
+    start = max(account.created_at, START)
     add_activity(
         rng,
         cfg,
         fixtures,
         pop,
         account,
-        start=max(account.created_at, START),
+        start=start,
         end=cfg.end,
         typical_stake=typical,
         n_deposits=rng.randint(*cfg.deposits_per_account),
         n_bets=rng.randint(*cfg.bets_per_account),
     )
+    if rng.random() < cfg.ordinary_topup_share:
+        for _ in range(rng.randint(*cfg.topup_days)):
+            add_match_day_topup(rng, cfg, fixtures, pop, account, start, typical)
     return account
+
+
+def add_match_day_topup(
+    rng: random.Random,
+    cfg: SimConfig,
+    fixtures: FixtureIndex,
+    pop: Population,
+    account: AccountCreate,
+    start: datetime,
+    typical: float,
+) -> None:
+    """Several deposits shortly before a match, then a bet or two on it at normal stakes."""
+    lead = timedelta(minutes=105)  # same spacing as the planted bursts
+    choices = fixtures.between(start + lead + timedelta(hours=1), cfg.end)
+    if not choices:
+        return
+    fixture = rng.choice(choices)
+    burst_end = fixture.kickoff - lead
+    add_deposit_burst(rng, cfg, pop, account, burst_end, cfg.topup_deposits, cfg.topup_minutes)
+    for _ in range(rng.randint(*cfg.topup_bets)):
+        latest = burst_end + timedelta(minutes=45)
+        stake = draw_stake(rng, cfg, typical)
+        odds = draw_ordinary_odds(rng, cfg)
+        pop.bets.append(place_bet(rng, cfg, account, fixture, burst_end, latest, stake, odds))
 
 
 # --- building blocks, shared by ordinary customers and planted stories (app.sim.stories) ---
@@ -207,6 +238,26 @@ def place_bet(
     hi = min(latest, fixture.kickoff - lead_min, cfg.end)
     placed_at = random_time(rng, lo, hi)
     return make_bet(rng, cfg, account, fixture, placed_at, stake_minor, odds)
+
+
+def add_deposit_burst(
+    rng: random.Random,
+    cfg: SimConfig,
+    pop: Population,
+    account: AccountCreate,
+    end: datetime,
+    count: tuple[int, int],
+    minutes: tuple[int, int],
+) -> datetime:
+    """Several deposits within a few minutes, ending by `end`. Returns the first one's time.
+
+    Used by F1/L1 episodes and by ordinary match-day top-ups alike.
+    """
+    span = timedelta(minutes=rng.randint(*minutes))
+    times = sorted(random_time(rng, end - span, end) for _ in range(rng.randint(*count)))
+    for t in times:
+        pop.deposits.append(make_deposit(rng, cfg, account, t))
+    return times[0]
 
 
 def scaled_count(rng: random.Random, bounds: tuple[int, int], share: float, minimum: int) -> int:

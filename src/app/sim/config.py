@@ -63,6 +63,14 @@ class SimConfig(BaseModel):
     long_odds_share: float = Field(default=0.01, ge=0, lt=1)  # ordinary long shots
     long_odds_millis: tuple[int, int] = (8_000, 25_000)  # "long odds" = 8.0 or more
 
+    # Ordinary variety, so ordinary customers trip the alert rules too (noisy alerts).
+    ordinary_high_roller_share: float = Field(default=0.03, ge=0, le=1)  # typical stake ~A$150
+    ordinary_topup_share: float = Field(default=0.10, ge=0, le=1)  # match-day top-ups
+    topup_days: tuple[int, int] = (1, 3)  # match days with a top-up burst, per such customer
+    topup_deposits: tuple[int, int] = (3, 5)
+    topup_minutes: tuple[int, int] = (20, 60)
+    topup_bets: tuple[int, int] = (1, 2)
+
     # --- Planted stories (S3; table in docs/cards/simulator.md) ---------------------------
     # Prevalence: share of all accounts per story, with a floor so M9 has enough to sample.
     fraud_share: float = Field(default=0.02, gt=0, lt=1)  # per fraud story (F1, F2)

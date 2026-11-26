@@ -1,8 +1,10 @@
 """Measure the six story signals from the generated ROWS (not from the registry).
 
 Tests use this to check that what the registry says was planted is really in the data,
-and that no single signal separates a fraud story from its look-alikes. Thresholds match
-the docs/cards/simulator.md table.
+and that no single signal separates a fraud story from its look-alikes;
+scripts/sim_report.py uses it to count ordinary accounts that look like fraud. Thresholds
+match the docs/cards/simulator.md table. An evaluation tool: the alert rules never import
+it (tests/test_sim_rules.py checks).
 """
 
 import statistics
