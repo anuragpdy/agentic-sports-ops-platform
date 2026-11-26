@@ -15,6 +15,8 @@ and we must be able to regenerate exactly the same exam.
 
 ## Decisions
 - D1 Size: 5,000 accounts by default; `--accounts N` to change. Scale is M14.
+  Single-currency AUD book (country AU), modelled on the Australian market; every row
+  still carries `currency` = "AUD". Money assumptions (stake/deposit sizes) live in SimConfig.
   Prevalence lives in one config object: ~2% of accounts per fraud story, ~3% per
   look-alike, and `min_per_story` (default 50) accounts per story at minimum, so M9 has
   enough fraud alerts to sample from. The CLI refuses an N too small to meet the minimum
@@ -66,6 +68,12 @@ and we must be able to regenerate exactly the same exam.
 - By hand: run it twice (see the refusal); check counts and one fraud story in psql.
 - CI green with tests reported as passed, not skipped. Card: `docs/cards/simulator.md`.
 - `progress.md`: I5 and I6 closed.
+
+## Known simplifications
+- No balances or withdrawals: stakes are not checked against money deposited, so
+  "bets more than they hold" is not a signal.
+- Closed and suspended accounts keep betting to the end of the window (status is random
+  and independent of the label, D7, but has no effect on activity). Logged as I8 (low).
 
 ## Not today
 Agent and MCP tools (M4) · DB role hiding `alert_labels` (M4) · scoring the agent (M9) ·
