@@ -49,3 +49,4 @@ former employer.
 - Never commit before I approve the slice; stop and show the diff first.
 - Never read or edit .env; tell me what to change and I'll do it.
 - No retries inside health probes; the caller's next poll is the retry.
+- Measure the generated data for tells; a zero count needs a positive control.
