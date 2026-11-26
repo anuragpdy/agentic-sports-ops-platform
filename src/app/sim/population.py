@@ -116,51 +116,143 @@ def build_ordinary(
 def add_ordinary_customer(
     rng: random.Random, cfg: SimConfig, fixtures: FixtureIndex, pop: Population
 ) -> AccountCreate:
-    signup_from = START - timedelta(days=cfg.history_days)
-    signup_to = cfg.end - timedelta(days=cfg.last_signup_days)
-    account = AccountCreate(
+    account = new_account(rng, cfg, draw_signup(rng, cfg))
+    pop.accounts.append(account)
+    typical = draw_typical_stake(rng, cfg)
+    add_activity(
+        rng,
+        cfg,
+        fixtures,
+        pop,
+        account,
+        start=max(account.created_at, START),
+        end=cfg.end,
+        typical_stake=typical,
+        n_deposits=rng.randint(*cfg.deposits_per_account),
+        n_bets=rng.randint(*cfg.bets_per_account),
+    )
+    return account
+
+
+# --- building blocks, shared by ordinary customers and planted stories (app.sim.stories) ---
+
+
+def draw_signup(rng: random.Random, cfg: SimConfig) -> datetime:
+    return random_time(
+        rng,
+        START - timedelta(days=cfg.history_days),
+        cfg.end - timedelta(days=cfg.last_signup_days),
+    )
+
+
+def new_account(rng: random.Random, cfg: SimConfig, created_at: datetime) -> AccountCreate:
+    return AccountCreate(
         id=new_id(rng),
         country=cfg.country,
         currency=cfg.currency,
-        status=weighted(rng, cfg.status_weights),
-        created_at=random_time(rng, signup_from, signup_to),
+        status=weighted(rng, cfg.status_weights),  # same mix for everyone (D7)
+        created_at=created_at,
     )
-    pop.accounts.append(account)
 
-    active_from = max(account.created_at, START)
-    deposit_times = sorted(
-        random_time(rng, active_from, cfg.end)
-        for _ in range(rng.randint(*cfg.deposits_per_account))
+
+def draw_typical_stake(rng: random.Random, cfg: SimConfig, median: float | None = None) -> float:
+    """A customer's typical stake (dollars). `median` overrides cfg.stake_median (high rollers)."""
+    return (median or cfg.stake_median) * rng.lognormvariate(0, cfg.stake_profile_sigma)
+
+
+def draw_stake(rng: random.Random, cfg: SimConfig, typical: float) -> int:
+    """One bet's stake in cents, varying around the customer's typical stake."""
+    return to_minor(typical * rng.lognormvariate(0, cfg.stake_bet_sigma), cfg.stake_min)
+
+
+def draw_long_odds(rng: random.Random, millis: tuple[int, int]) -> Decimal:
+    return Decimal(rng.randint(*millis)).scaleb(-3).quantize(THOUSANDTH)
+
+
+def draw_ordinary_odds(rng: random.Random, cfg: SimConfig) -> Decimal:
+    """Mostly 1.2-6.0; a small share of long shots, so long odds alone isn't suspicious."""
+    if rng.random() < cfg.long_odds_share:
+        return draw_long_odds(rng, cfg.long_odds_millis)
+    return draw_odds(rng, cfg)
+
+
+def make_deposit(
+    rng: random.Random, cfg: SimConfig, account: AccountCreate, created_at: datetime
+) -> DepositCreate:
+    return DepositCreate(
+        id=new_id(rng),
+        account_id=account.id,
+        amount_minor=to_minor(
+            cfg.deposit_median * rng.lognormvariate(0, cfg.deposit_sigma), cfg.deposit_min
+        ),
+        currency=account.currency,  # I7: deposit currency = account currency
+        method=weighted(rng, cfg.method_weights),
+        created_at=created_at,
     )
-    for created_at in deposit_times:
-        pop.deposits.append(
-            DepositCreate(
-                id=new_id(rng),
-                account_id=account.id,
-                amount_minor=to_minor(
-                    cfg.deposit_median * rng.lognormvariate(0, cfg.deposit_sigma), cfg.deposit_min
-                ),
-                currency=account.currency,  # I7
-                method=weighted(rng, cfg.method_weights),
-                created_at=created_at,
-            )
-        )
 
-    # Bets only after the first deposit (no money before that) and before the window ends,
-    # placed lead_min..lead_max hours before kickoff. Matches up to lead_max after the end
-    # are allowed: bets on them are still open in the snapshot, as in a live sportsbook.
+
+def place_bet(
+    rng: random.Random,
+    cfg: SimConfig,
+    account: AccountCreate,
+    fixture: Fixture,
+    earliest: datetime,
+    latest: datetime,
+    stake_minor: int,
+    odds: Decimal,
+) -> BetCreate:
+    """A bet placed in [earliest, latest), clipped to lead_min..lead_max before kickoff."""
     lead_min, lead_max = (timedelta(hours=h) for h in cfg.bet_lead_hours)
-    first_deposit = deposit_times[0]
-    choices = fixtures.between(first_deposit + lead_min, cfg.end + lead_max)
+    lo = max(earliest, fixture.kickoff - lead_max)
+    hi = min(latest, fixture.kickoff - lead_min, cfg.end)
+    placed_at = random_time(rng, lo, hi)
+    return make_bet(rng, cfg, account, fixture, placed_at, stake_minor, odds)
+
+
+def scaled_count(rng: random.Random, bounds: tuple[int, int], share: float, minimum: int) -> int:
+    """A count from `bounds`, scaled to the share of the window an activity span covers."""
+    return max(minimum, round(rng.randint(*bounds) * share))
+
+
+def add_activity(
+    rng: random.Random,
+    cfg: SimConfig,
+    fixtures: FixtureIndex,
+    pop: Population,
+    account: AccountCreate,
+    *,
+    start: datetime,
+    end: datetime,
+    typical_stake: float,
+    n_deposits: int,
+    n_bets: int,
+    money_from: datetime | None = None,
+) -> list[BetCreate]:
+    """Ordinary behaviour in [start, end): deposits, then bets on upcoming matches.
+
+    Bets need money: they come after `money_from` (default: the first deposit here).
+    Matches up to lead_max after the window's end are allowed, so late bets stay open.
+    Returns the bets added.
+    """
+    if end <= start:
+        return []
+    deposit_times = sorted(random_time(rng, start, end) for _ in range(n_deposits))
+    for created_at in deposit_times:
+        pop.deposits.append(make_deposit(rng, cfg, account, created_at))
+    if money_from is None:
+        if not deposit_times:
+            return []
+        money_from = deposit_times[0]
+    lead_min, lead_max = (timedelta(hours=h) for h in cfg.bet_lead_hours)
+    # Kickoff in [money_from + lead_min, end + lead_max): a valid placement time always exists.
+    choices = fixtures.between(money_from + lead_min, min(end, cfg.end) + lead_max)
     if not choices:
-        return account
-    typical_stake = cfg.stake_median * rng.lognormvariate(0, cfg.stake_profile_sigma)
-    for _ in range(rng.randint(*cfg.bets_per_account)):
+        return []
+    bets = []
+    for _ in range(n_bets):
         fixture = rng.choice(choices)
-        # Never empty: the fixture kicks off in [first_deposit + lead_min, end + lead_max).
-        earliest = max(first_deposit, fixture.kickoff - lead_max)
-        latest = min(fixture.kickoff - lead_min, cfg.end)
-        placed_at = random_time(rng, earliest, latest)
-        stake = to_minor(typical_stake * rng.lognormvariate(0, cfg.stake_bet_sigma), cfg.stake_min)
-        pop.bets.append(make_bet(rng, cfg, account, fixture, placed_at, stake, draw_odds(rng, cfg)))
-    return account
+        stake = draw_stake(rng, cfg, typical_stake)
+        odds = draw_ordinary_odds(rng, cfg)
+        bets.append(place_bet(rng, cfg, account, fixture, money_from, end, stake, odds))
+    pop.bets.extend(bets)
+    return bets

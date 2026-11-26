@@ -1,4 +1,4 @@
-"""S2: simulator core + ordinary customers. Pure in-memory tests (no database)."""
+"""S2: simulator core + ordinary customers (and rules all rows obey). No database."""
 
 import random
 from collections import Counter
@@ -7,18 +7,24 @@ from decimal import Decimal
 
 import pytest
 
-from app.sim.build import generate
+from app.sim.build import SimResult, generate
 from app.sim.config import START, SimConfig
 from app.sim.fixtures import build_calendar
 from app.sim.ids import new_id
 from app.sim.population import Population, draw_odds
 
-SMALL = SimConfig(accounts=200)
+# Small run (spec D1): 200 accounts, 5 per story minimum -> 22 planted, 178 ordinary.
+SMALL = SimConfig(accounts=200, min_per_story=5)
 
 
 @pytest.fixture(scope="module")
-def pop() -> Population:
+def result() -> SimResult:
     return generate(42, SMALL)
+
+
+@pytest.fixture(scope="module")
+def pop(result: SimResult) -> Population:
+    return result.population
 
 
 def _dump(pop: Population) -> list[list[dict[str, object]]]:
@@ -29,11 +35,14 @@ def _dump(pop: Population) -> list[list[dict[str, object]]]:
 
 
 def test_same_seed_gives_identical_rows(pop: Population) -> None:
-    assert _dump(generate(42, SMALL)) == _dump(pop)
+    again = generate(42, SMALL)
+
+    assert _dump(again.population) == _dump(pop)
+    assert again.registry == generate(42, SMALL).registry
 
 
 def test_different_seed_gives_different_rows(pop: Population) -> None:
-    other = generate(7, SMALL)
+    other = generate(7, SMALL).population
 
     assert {a.id for a in other.accounts}.isdisjoint({a.id for a in pop.accounts})
     assert _dump(other) != _dump(pop)
@@ -56,12 +65,14 @@ def test_one_account_per_requested_customer(pop: Population) -> None:
     assert len({a.id for a in pop.accounts}) == SMALL.accounts
 
 
-def test_every_account_deposits_and_counts_stay_in_configured_range(pop: Population) -> None:
-    deposits = Counter(d.account_id for d in pop.deposits)
+def test_ordinary_accounts_deposit_within_the_configured_range(result: SimResult) -> None:
+    planted = {s.account_id for s in result.registry}
+    ordinary = {a.id for a in result.population.accounts} - planted
+    deposits = Counter(d.account_id for d in result.population.deposits)
     low, high = SMALL.deposits_per_account
 
-    assert set(deposits) == {a.id for a in pop.accounts}
-    assert all(low <= n <= high for n in deposits.values())
+    assert len(ordinary) == SMALL.accounts - len(planted)
+    assert all(low <= deposits[a] <= high for a in ordinary)
 
 
 def test_all_times_are_inside_the_window_and_after_signup(pop: Population) -> None:
@@ -98,12 +109,22 @@ def test_weekends_have_more_matches_than_weekdays() -> None:
 
 
 def test_odds_are_exact_3dp_decimals_in_range(pop: Population) -> None:
-    low, high = (Decimal(x).scaleb(-3) for x in SMALL.odds_millis)
+    low = Decimal(SMALL.odds_millis[0]).scaleb(-3)
+    high = Decimal(SMALL.long_odds_millis[1]).scaleb(-3)
 
     for b in pop.bets:
         assert type(b.odds) is Decimal
         assert b.odds.as_tuple().exponent == -3
         assert low <= b.odds <= high
+
+
+def test_ordinary_customers_take_a_few_long_shots(result: SimResult) -> None:
+    # So long odds alone never points at a planted account.
+    planted = {s.account_id for s in result.registry}
+    ordinary = [b for b in result.population.bets if b.account_id not in planted]
+    long_share = sum(b.odds >= Decimal("8.000") for b in ordinary) / len(ordinary)
+
+    assert 0.002 < long_share < 0.03
 
 
 def test_draw_odds_never_has_float_noise() -> None:
@@ -140,12 +161,17 @@ def test_settlement_amounts_follow_status(pop: Population) -> None:
 # --- realism: loose bands, so a config typo shows up --------------------------------------
 
 
-def test_outcome_shares_are_realistic(pop: Population) -> None:
-    settled = [b for b in pop.bets if b.status != "open"]
+def test_ordinary_outcome_shares_are_realistic(result: SimResult) -> None:
+    # Ordinary customers only: in a small run a few planted A$300-1,500 long shots would
+    # dominate the totals.
+    planted = {s.account_id for s in result.registry}
+    bets = [b for b in result.population.bets if b.account_id not in planted]
+    settled = [b for b in bets if b.status != "open"]
     share = Counter(b.status for b in settled)
     n = len(settled)
 
-    assert 0.30 < share["won"] / n < 0.50  # ~0.95/odds averaged over 1.2-6.0
+    # Expected ~0.318 (0.95/odds averaged over 1.2-6.0), a bit lower with long shots.
+    assert 0.26 < share["won"] / n < 0.37
     assert share["void"] / n < 0.05
     stakes = sum(b.stake_minor for b in settled if b.status != "void")
     payouts = sum(b.payout_minor or 0 for b in settled if b.status != "void")
